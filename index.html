@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EEG Frequency Band Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header class="site-header">
+  <h1>⚡ EEG Frequency Game</h1>
+  <div class="header-stats">
+    <span>Score: <strong id="score-val">0</strong></span>
+    <span>Round: <strong id="round-val">1 / 10</strong></span>
+  </div>
+  <nav class="header-nav">
+    <a href="guide.html">Reference Guide</a>
+  </nav>
+</header>
+
+<!-- ── Game screen ─────────────────────────────────────────────────────── -->
+<main class="main-content">
+  <div id="game-screen">
+
+    <!-- EEG waveform display -->
+    <div class="canvas-container">
+      <div class="canvas-label">EEG Waveform — Identify the frequency band and any events</div>
+      <canvas id="eeg-canvas"></canvas>
+    </div>
+
+    <!-- Frequency band selection -->
+    <div class="card">
+      <div class="card-title">Frequency Band</div>
+      <div class="btn-group">
+        <button class="btn-toggle" data-band="delta">Delta &nbsp;<small>0.5–4 Hz</small></button>
+        <button class="btn-toggle" data-band="theta">Theta &nbsp;<small>4–8 Hz</small></button>
+        <button class="btn-toggle" data-band="alpha">Alpha &nbsp;<small>8–13 Hz</small></button>
+        <button class="btn-toggle" data-band="beta">Beta &nbsp;<small>13–30 Hz</small></button>
+        <button class="btn-toggle" data-band="gamma">Gamma &nbsp;<small>30+ Hz</small></button>
+      </div>
+    </div>
+
+    <!-- Special event selection -->
+    <div class="card">
+      <div class="card-title">Special Events &nbsp;<small style="text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:0.8rem;">(select one)</small></div>
+      <div class="btn-group">
+        <button class="btn-event" data-event="none">None</button>
+        <button class="btn-event" data-event="absence">Absence seizure</button>
+        <button class="btn-event" data-event="focal">Focal seizure onset</button>
+        <button class="btn-event" data-event="gtc">Generalized tonic-clonic</button>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <button class="btn-submit" id="submit-btn" disabled>Submit Answer</button>
+
+    <!-- Feedback panel (hidden until submit) -->
+    <div id="feedback-panel" class="hidden"></div>
+
+  </div><!-- /#game-screen -->
+
+  <!-- ── Game over screen ───────────────────────────────────────────────── -->
+  <div id="game-over" class="hidden">
+    <h2>Game Over</h2>
+    <div class="final-score" id="final-score">0</div>
+    <p class="score-label">out of <span id="max-score">250</span> points &nbsp;·&nbsp; <strong id="grade-label"></strong></p>
+    <button class="btn-submit" id="play-again-btn">Play Again</button>
+    <p style="margin-top:24px;color:var(--text-muted);font-size:0.88rem;">
+      Want to brush up? Check the <a href="guide.html">Reference Guide</a>.
+    </p>
+  </div>
+
+</main>
+
+<script src="eeg.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

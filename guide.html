@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EEG Reference Guide</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .guide-intro {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+      margin-bottom: 28px;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.7;
+    }
+    .guide-intro strong { color: var(--text); }
+
+    .guide-back-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-bottom: 24px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .guide-back-btn:hover {
+      border-color: var(--green);
+      color: var(--green);
+      text-decoration: none;
+    }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 8px 0 28px;
+    }
+
+    .band-section-header {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--blue);
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <h1>⚡ EEG Frequency Game</h1>
+  <nav class="header-nav">
+    <a href="index.html">← Back to Game</a>
+  </nav>
+</header>
+
+<main class="main-content">
+
+  <a href="index.html" class="guide-back-btn">← Back to Game</a>
+
+  <div class="guide-intro">
+    <strong>Reference Guide</strong> — Use this page to learn what each EEG frequency band and seizure event looks
+    like before playing, or review it after getting a question wrong. All waveforms below are
+    programmatically generated examples that mimic the key visual features seen in clinical EEG recordings.
+  </div>
+
+  <!-- ── Frequency Bands ─────────────────────────────────────────────── -->
+  <div class="band-section-header">Frequency Bands</div>
+  <div id="band-examples"></div>
+
+  <hr class="section-divider" />
+
+  <!-- ── Seizure Events ─────────────────────────────────────────────── -->
+  <div class="band-section-header" style="color:var(--yellow)">Seizure &amp; Special Event Patterns</div>
+
+  <div id="guide-container"></div>
+
+  <p style="margin-top:40px;color:var(--text-muted);font-size:0.82rem;text-align:center;">
+    Waveforms are synthetically generated for educational purposes only and do not represent real patient data.
+  </p>
+
+</main>
+
+<script src="eeg.js"></script>
+<script src="guide.js"></script>
+</body>
+</html>
