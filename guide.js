@@ -231,7 +231,7 @@
         canvas.width  = canvas.offsetWidth  || 800;
         canvas.height = canvas.offsetHeight || 200;
         const signal = EEG.generateGuideSignal(section.eventKey);
-        EEG.renderToCanvas(canvas, signal, { lineColor: '#e3b341' });
+        EEG.renderToCanvas(canvas, signal, {});
       });
     });
   }
@@ -260,7 +260,7 @@
         canvas.width  = canvas.offsetWidth  || 800;
         canvas.height = canvas.offsetHeight || 120;
         const signal = EEG.generateSignal(bandKey, 'none', 0);
-        EEG.renderToCanvas(canvas, signal, { lineColor: '#58a6ff' });
+        EEG.renderToCanvas(canvas, signal, {});
       });
     });
   }

@@ -3,81 +3,86 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="favicon.png" />
   <title>EEG Frequency Band Game</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<!-- ── Header bar ──────────────────────────────────────────────────────── -->
 <header class="site-header">
-  <h1>EEG Frequency Game</h1>
-  <div class="header-stats">
-    <span>Score: <strong id="score-val">0</strong></span>
-    <span>Round: <strong id="round-val">1 / 10</strong></span>
-  </div>
+  <h1>NEUROSCI EEG TRAINER &nbsp;|&nbsp; v1.0 &nbsp;|&nbsp; 256 Hz · 1ch &nbsp;|&nbsp; Score: <strong id="score-val">0</strong> &nbsp;|&nbsp; Round: <strong id="round-val">1 / 10</strong></h1>
   <nav class="header-nav">
     <a href="guide.html">Reference Guide</a>
   </nav>
 </header>
+<hr>
 
-<!-- ── Game screen ─────────────────────────────────────────────────────── -->
 <main class="main-content">
   <div id="game-screen">
 
-    <!-- EEG waveform display -->
+    <!-- EEG display -->
     <div class="canvas-container">
-      <div class="canvas-label">EEG Waveform — Identify the frequency band and any events</div>
+      <div class="canvas-label">EEG · Raw Signal &mdash; identify frequency band and any events below</div>
       <canvas id="eeg-canvas"></canvas>
     </div>
 
-    <!-- Frequency band selection -->
-    <div class="card">
-      <div class="card-title">Frequency Band</div>
-      <div class="btn-group">
-        <button class="btn-toggle" data-band="delta">Delta &nbsp;<small>0.5–4 Hz</small></button>
-        <button class="btn-toggle" data-band="theta">Theta &nbsp;<small>4–8 Hz</small></button>
-        <button class="btn-toggle" data-band="alpha">Alpha &nbsp;<small>8–13 Hz</small></button>
-        <button class="btn-toggle" data-band="beta">Beta &nbsp;<small>13–30 Hz</small></button>
-        <button class="btn-toggle" data-band="gamma">Gamma &nbsp;<small>30+ Hz</small></button>
-      </div>
-    </div>
+    <!-- Band + event selection in table layout -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
+      <tr>
+        <td style="width:50%;vertical-align:top;padding-right:8px;">
+          <div class="card">
+            <div class="card-title">Frequency Band</div>
+            <div class="btn-group">
+              <button class="btn-toggle" data-band="delta">DELTA &nbsp;0.5–4 Hz</button>
+              <button class="btn-toggle" data-band="theta">THETA &nbsp;4–8 Hz</button>
+              <button class="btn-toggle" data-band="alpha">ALPHA &nbsp;8–13 Hz</button>
+              <button class="btn-toggle" data-band="beta">BETA &nbsp;13–30 Hz</button>
+              <button class="btn-toggle" data-band="gamma">GAMMA &nbsp;30+ Hz</button>
+            </div>
+          </div>
+        </td>
+        <td style="vertical-align:top;">
+          <div class="card">
+            <div class="card-title">Special Events <span style="font-weight:normal;text-transform:none;letter-spacing:0;">(select one)</span></div>
+            <div class="btn-group">
+              <button class="btn-event" data-event="none">NONE</button>
+              <button class="btn-event" data-event="absence">Absence seizure</button>
+              <button class="btn-event" data-event="focal">Focal seizure onset</button>
+              <button class="btn-event" data-event="gtc">Generalized tonic-clonic</button>
+              <button class="btn-event" data-event="spindle">Sleep spindle</button>
+              <button class="btn-event" data-event="kcomplex">K-complex</button>
+              <button class="btn-event" data-event="triphasic">Triphasic waves</button>
+              <button class="btn-event" data-event="burst_suppression">Burst suppression</button>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
 
-    <!-- Special event selection -->
-    <div class="card">
-      <div class="card-title">Special Events &nbsp;<small style="text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:0.8rem;">(select one)</small></div>
-      <div class="btn-group">
-        <button class="btn-event" data-event="none">None</button>
-        <button class="btn-event" data-event="absence">Absence seizure</button>
-        <button class="btn-event" data-event="focal">Focal seizure onset</button>
-        <button class="btn-event" data-event="gtc">Generalized tonic-clonic</button>
-        <button class="btn-event" data-event="spindle">Sleep spindle</button>
-        <button class="btn-event" data-event="kcomplex">K-complex</button>
-        <button class="btn-event" data-event="triphasic">Triphasic waves</button>
-        <button class="btn-event" data-event="burst_suppression">Burst suppression</button>
-      </div>
-    </div>
+    <button class="btn-submit" id="submit-btn" disabled>[ SUBMIT ANSWER ]</button>
 
-    <!-- Submit -->
-    <button class="btn-submit" id="submit-btn" disabled>Submit Answer</button>
-
-    <!-- Feedback panel (hidden until submit) -->
+    <!-- Feedback panel -->
     <div id="feedback-panel" class="hidden"></div>
 
   </div><!-- /#game-screen -->
 
-  <!-- ── Game over screen ───────────────────────────────────────────────── -->
+  <!-- ── Game over ──────────────────────────────────────────────────────── -->
   <div id="game-over" class="hidden">
-    <h2>Game Over</h2>
+    <h2>Session Complete</h2>
     <div class="final-score" id="final-score">0</div>
-    <p class="score-label">out of <span id="max-score">250</span> points &nbsp;·&nbsp; <strong id="grade-label"></strong></p>
-    <button class="btn-submit" id="play-again-btn">Play Again</button>
-    <p style="margin-top:24px;color:var(--text-muted);font-size:0.88rem;">
-      Want to brush up? Check the <a href="guide.html">Reference Guide</a>.
+    <p class="score-label">out of <span id="max-score">250</span> pts &nbsp;&mdash;&nbsp; <strong id="grade-label"></strong></p>
+    <button class="btn-submit" id="play-again-btn">[ PLAY AGAIN ]</button>
+    <p style="margin-top:12px;font-size:11px;color:#555;">
+      Review the <a href="guide.html">Reference Guide</a> to improve your accuracy.
     </p>
   </div>
 
 </main>
+
+<hr>
+<span style="font-size:10px;color:#555;">
+  Device: Simulated &nbsp;|&nbsp; Filter: 0.5–80 Hz &nbsp;|&nbsp; Ref: Cz linked mastoid &nbsp;|&nbsp; Educational use only — not for clinical diagnosis
+</span>
 
 <script src="eeg.js"></script>
 <script src="game.js"></script>

@@ -315,12 +315,12 @@ const EEG = (() => {
    */
   function renderToCanvas(canvas, signal, opts = {}) {
     const {
-      lineColor    = '#00ff88',
-      bgColor      = '#0d1117',
-      lineWidth    = 1.5,
-      gridColor    = '#1a2535',
-      axisColor    = '#3a4a5a',
-      labelColor   = '#7d8590',
+      lineColor    = '#000000',
+      bgColor      = '#ffffff',
+      lineWidth    = 1.2,
+      gridColor    = '#cccccc',
+      axisColor    = '#888888',
+      labelColor   = '#555555',
       showTimeAxis = true,
       duration     = DURATION,
     } = opts;
@@ -471,12 +471,12 @@ const EEG = (() => {
    */
   function startAnimation(canvas, signal, opts = {}) {
     const {
-      lineColor    = '#00ff88',
-      bgColor      = '#0d1117',
-      lineWidth    = 1.5,
-      gridColor    = '#1a2535',
-      axisColor    = '#3a4a5a',
-      labelColor   = '#7d8590',
+      lineColor    = '#000000',
+      bgColor      = '#ffffff',
+      lineWidth    = 1.2,
+      gridColor    = '#cccccc',
+      axisColor    = '#888888',
+      labelColor   = '#555555',
       showTimeAxis = true,
       duration     = DURATION,
       loop         = true,

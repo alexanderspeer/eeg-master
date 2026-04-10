@@ -286,7 +286,7 @@
       exCanvas.width  = exCanvas.offsetWidth || 700;
       exCanvas.height = exCanvas.offsetHeight || 150;
       const sig = EEG.generateGuideSignal(currentEvent);
-      EEG.renderToCanvas(exCanvas, sig, { lineColor: '#e3b341' });
+      EEG.renderToCanvas(exCanvas, sig);
     }
 
     document.getElementById('next-btn').addEventListener('click', () => {
