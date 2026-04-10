@@ -1,87 +1,129 @@
 /**
  * game.js — EEG guessing game logic
- * State machine: IDLE → PLAYING → FEEDBACK → (next round or GAME_OVER)
+ * State machine: IDLE -> PLAYING -> FEEDBACK -> (next round or GAME_OVER)
  */
 
 (() => {
-  // ── Constants ──────────────────────────────────────────────────────────
   const TOTAL_ROUNDS = 10;
 
   const BAND_DESCRIPTIONS = {
-    delta: 'Delta waves (0.5–4 Hz) are the slowest and highest-amplitude waves, typically seen during deep sleep.',
-    theta: 'Theta waves (4–8 Hz) appear during drowsiness, light sleep, and meditative states.',
-    alpha: 'Alpha waves (8–13 Hz) are the classic "relaxed-but-awake" rhythm, prominent when eyes are closed.',
-    beta:  'Beta waves (13–30 Hz) are fast low-amplitude waves associated with active thinking and alertness.',
-    gamma: 'Gamma waves (30+ Hz) are very high-frequency waves linked to complex cognitive processing.',
+    delta: 'Delta waves (0.5–4 Hz) are the slowest and highest-amplitude waves, typically seen during deep sleep (stage 3 NREM).',
+    theta: 'Theta waves (4–8 Hz) appear during drowsiness, light sleep, and meditative states. Also prominent in hippocampal recordings during memory encoding.',
+    alpha: 'Alpha waves (8–13 Hz) are the classic "relaxed-but-awake" rhythm, most prominent over occipital regions when eyes are closed.',
+    beta:  'Beta waves (13–30 Hz) are fast, low-amplitude waves associated with active thinking, alertness, and anxiety.',
+    gamma: 'Gamma waves (30+ Hz) are very high-frequency oscillations linked to complex cognitive processing and cross-regional integration.',
   };
 
   const EVENT_DESCRIPTIONS = {
     absence: {
       title: 'Absence Seizure Pattern',
-      clinical: 'Absence seizures (petit mal) are characterised by brief lapses of awareness lasting a few seconds. The patient typically stops all movement and stares blankly.',
-      eeg: 'The hallmark EEG signature is a **regular 3 Hz spike-and-wave** discharge that starts and stops abruptly, superimposed on an otherwise normal background. Each complex consists of a sharp positive spike immediately followed by a rounded negative slow wave.',
+      eeg: 'The hallmark EEG signature is a regular 3 Hz spike-and-wave discharge that starts and stops abruptly. Each complex consists of a sharp positive spike immediately followed by a rounded negative slow wave.',
       features: [
         'Regular 3 Hz (3 per second) spike-and-wave complexes',
-        'Generalized — appears across all electrode channels simultaneously',
-        'Abrupt onset and termination',
-        'Background activity returns to normal immediately after',
+        'Generalized — simultaneous across all electrode channels',
+        'Abrupt onset and termination (on-off pattern)',
+        'Background activity returns immediately to normal',
         'Duration typically 4–20 seconds',
       ],
     },
     focal: {
       title: 'Focal Seizure Onset Pattern',
-      clinical: 'Focal (partial) seizures originate in one region of the brain. Symptoms depend on the onset zone and may include motor, sensory, autonomic, or cognitive features.',
-      eeg: 'Focal onset is marked by a **rhythmic theta/alpha burst that evolves in frequency and amplitude** over seconds. The activity begins at low amplitude, gradually increases, and the frequency often speeds up or slows down in a characteristic "evolving" pattern.',
+      eeg: 'Focal onset is identified by a rhythmic discharge evolving in frequency and amplitude over seconds. Activity typically begins as low-amplitude fast activity or rhythmic theta, then builds progressively.',
       features: [
         'Localised to a subset of electrodes (one hemisphere or lobe)',
-        'Rhythmic activity that evolves in frequency, amplitude, and/or morphology',
-        'Often begins as low-amplitude fast activity or rhythmic theta',
-        'Background outside the focus may be relatively normal early on',
-        'Gradual buildup distinguishes it from the abrupt 3 Hz pattern of absence',
+        'Rhythmic activity evolving in frequency, amplitude, and morphology',
+        'Gradual buildup — distinguishes it from the abrupt 3 Hz pattern of absence',
+        'Background outside the focus may remain relatively normal',
+        'May secondarily generalize to involve both hemispheres',
       ],
     },
     gtc: {
       title: 'Generalized Tonic-Clonic Seizure Activity',
-      clinical: 'Generalized tonic-clonic (GTC) seizures — formerly "grand mal" — involve the entire brain. The tonic phase causes muscle stiffening; the clonic phase causes rhythmic jerking. Post-ictally the patient is typically confused and fatigued.',
-      eeg: 'The EEG shows two distinct phases: an initial **tonic phase** with high-frequency polyspike discharges (10–25 Hz, very high amplitude), followed by a **clonic phase** with repetitive spike-and-slow-wave complexes at 1–4 Hz that gradually slow and diminish.',
+      eeg: 'Two distinct phases: a tonic phase with high-frequency polyspike bursts (10–25 Hz), followed by a clonic phase of repetitive spike-and-slow-wave complexes at 1–4 Hz that progressively slow and diminish.',
       features: [
         'Tonic phase: generalized high-frequency (10–25 Hz) polyspike bursts',
-        'Clonic phase: repetitive spike-and-slow-wave at 1–4 Hz, slowing over time',
-        'Very high amplitude throughout — often causes electrode saturation in real recordings',
+        'Clonic phase: repetitive spike-slow-wave at 1–4 Hz, slowing over time',
+        'Very high amplitude throughout — often saturates amplifiers in real recordings',
         'Generalized across all channels simultaneously',
         'Followed by post-ictal suppression (flat or very low-amplitude background)',
+      ],
+    },
+    spindle: {
+      title: 'Sleep Spindle',
+      eeg: 'Sleep spindles are brief bursts of 12–14 Hz activity with a characteristic waxing-and-waning (fusiform) amplitude envelope, lasting 0.5–2 seconds. Generated by the thalamo-cortical loop, they are the defining feature of stage 2 NREM sleep.',
+      features: [
+        '12–14 Hz oscillations (sigma band)',
+        'Fusiform (spindle-shaped) amplitude envelope — wax, then wane',
+        'Duration 0.5–2 seconds',
+        'Maximal amplitude over central (Cz) and frontal electrodes',
+        'Occur on a background of mixed-frequency stage 2 NREM activity',
+        'Often immediately follow a K-complex',
+      ],
+    },
+    kcomplex: {
+      title: 'K-complex',
+      eeg: 'A K-complex is a high-amplitude, biphasic EEG waveform appearing as a sharp negative deflection immediately followed by a broad positive slow wave. It is the largest single event routinely seen in a normal EEG and is a hallmark of stage 2 NREM sleep.',
+      features: [
+        'Biphasic: sharp high-amplitude negative wave + broad positive slow wave',
+        'Total duration typically 0.5–1.5 seconds',
+        'Maximum amplitude over frontal electrodes (Fz, Cz)',
+        'Generalized — visible across most channels',
+        'Can be triggered by external stimuli (e.g., a sound) during sleep',
+        'Often followed immediately by a sleep spindle',
+      ],
+    },
+    triphasic: {
+      title: 'Triphasic Waves',
+      eeg: 'Triphasic waves are generalized EEG complexes recurring at 1.5–2.5 Hz with a characteristic three-phase morphology: a small negative, then a large positive, then a negative deflection. They have anterior predominance and an anterior-to-posterior lag. They are a marker of metabolic encephalopathy.',
+      features: [
+        'Three-phase morphology: negative–positive–negative sequence',
+        'Recur at 1.5–2.5 Hz (about 2 per second)',
+        'Generalized with anterior (frontal) predominance',
+        'Associated with hepatic, uremic, or other metabolic encephalopathy',
+        'Differentiated from absence by the triphasic shape and slower frequency',
+        'Background is typically slow (delta–theta) between complexes',
+      ],
+    },
+    burst_suppression: {
+      title: 'Burst Suppression',
+      eeg: 'Burst suppression is characterized by alternating periods of near-isoelectric (flat) EEG suppression and bursts of high-amplitude mixed-frequency activity. It indicates severe global brain dysfunction and is seen with deep anesthesia, severe anoxic encephalopathy, or hypothermia.',
+      features: [
+        'Alternating suppression (near-flat) and high-amplitude bursts',
+        'Suppression periods: voltage < 10 µV, typically 1–10 seconds',
+        'Bursts: mixed delta, theta, and faster frequencies, high amplitude',
+        'Generalized and bilaterally synchronous',
+        'Seen in deep anesthesia, post-cardiac arrest, severe hypothermia',
+        'Severity correlates with burst-suppression ratio (% time suppressed)',
       ],
     },
   };
 
   // ── State ──────────────────────────────────────────────────────────────
-  let state = 'IDLE'; // IDLE | PLAYING | FEEDBACK | GAME_OVER
+  let state = 'IDLE';
   let round = 0;
   let score = 0;
   let currentBand  = null;
   let currentEvent = null;
   let selectedBand  = null;
-  let selectedEvent = null; // 'none' | 'absence' | 'focal' | 'gtc'
+  let selectedEvent = null;
 
   // ── DOM refs ───────────────────────────────────────────────────────────
-  const canvas        = document.getElementById('eeg-canvas');
-  const scoreEl       = document.getElementById('score-val');
-  const roundEl       = document.getElementById('round-val');
-  const bandBtns      = document.querySelectorAll('.btn-toggle[data-band]');
-  const eventBtns     = document.querySelectorAll('.btn-event[data-event]');
-  const submitBtn     = document.getElementById('submit-btn');
-  const feedbackPanel = document.getElementById('feedback-panel');
-  const gameScreen    = document.getElementById('game-screen');
+  const canvas         = document.getElementById('eeg-canvas');
+  const scoreEl        = document.getElementById('score-val');
+  const roundEl        = document.getElementById('round-val');
+  const bandBtns       = document.querySelectorAll('.btn-toggle[data-band]');
+  const eventBtns      = document.querySelectorAll('.btn-event[data-event]');
+  const submitBtn      = document.getElementById('submit-btn');
+  const feedbackPanel  = document.getElementById('feedback-panel');
+  const gameScreen     = document.getElementById('game-screen');
   const gameOverScreen = document.getElementById('game-over');
-  const playAgainBtn  = document.getElementById('play-again-btn');
+  const playAgainBtn   = document.getElementById('play-again-btn');
 
-  // ── Resize canvas to its displayed size ───────────────────────────────
   function resizeCanvas() {
     canvas.width  = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
   }
 
-  // ── Render current signal ──────────────────────────────────────────────
   function renderCurrentSignal() {
     resizeCanvas();
     if (!currentBand) return;
@@ -90,23 +132,19 @@
     EEG.renderToCanvas(canvas, signal);
   }
 
-  // ── Start a new round ─────────────────────────────────────────────────
   function startRound() {
     round++;
     state = 'PLAYING';
     selectedBand  = null;
     selectedEvent = null;
 
-    // pick this round's answer
     const picked = EEG.pickRound(0.7);
     currentBand  = picked.bandKey;
     currentEvent = picked.eventKey;
 
-    // reset UI
     bandBtns.forEach(b => b.classList.remove('selected'));
     eventBtns.forEach(b => {
-      b.classList.remove('selected');
-      b.classList.remove('selected-none');
+      b.classList.remove('selected', 'selected-none');
     });
     submitBtn.disabled = true;
     feedbackPanel.classList.add('hidden');
@@ -116,12 +154,10 @@
     renderCurrentSignal();
   }
 
-  // ── Check if submit should be enabled ─────────────────────────────────
   function checkSubmitReady() {
     submitBtn.disabled = !(selectedBand && selectedEvent !== null);
   }
 
-  // ── Band selection ─────────────────────────────────────────────────────
   bandBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       if (state !== 'PLAYING') return;
@@ -132,25 +168,16 @@
     });
   });
 
-  // ── Event selection ────────────────────────────────────────────────────
   eventBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       if (state !== 'PLAYING') return;
-      eventBtns.forEach(b => {
-        b.classList.remove('selected');
-        b.classList.remove('selected-none');
-      });
+      eventBtns.forEach(b => b.classList.remove('selected', 'selected-none'));
       selectedEvent = btn.dataset.event;
-      if (selectedEvent === 'none') {
-        btn.classList.add('selected-none');
-      } else {
-        btn.classList.add('selected');
-      }
+      btn.classList.add(selectedEvent === 'none' ? 'selected-none' : 'selected');
       checkSubmitReady();
     });
   });
 
-  // ── Submit handler ─────────────────────────────────────────────────────
   submitBtn.addEventListener('click', () => {
     if (state !== 'PLAYING') return;
     state = 'FEEDBACK';
@@ -158,7 +185,6 @@
     showFeedback();
   });
 
-  // ── Play again ─────────────────────────────────────────────────────────
   playAgainBtn.addEventListener('click', () => {
     round = 0;
     score = 0;
@@ -175,25 +201,19 @@
 
     let pointsEarned = 0;
     if (bandCorrect)  pointsEarned += 10;
-    if (eventCorrect) {
-      pointsEarned += (currentEvent === 'none') ? 5 : 15;
-    }
+    if (eventCorrect) pointsEarned += (currentEvent === 'none') ? 5 : 15;
     score += pointsEarned;
     scoreEl.textContent = score;
 
-    // ─ Build feedback HTML ─
-    let headline, icon, headlineClass;
+    let headline, headlineClass;
     if (bandCorrect && eventCorrect) {
-      icon = '✓';
-      headline = 'Correct!';
+      headline = 'Correct';
       headlineClass = 'correct';
     } else if (bandCorrect || eventCorrect) {
-      icon = '~';
       headline = 'Partially correct';
       headlineClass = 'partial';
     } else {
-      icon = '✗';
-      headline = 'Not quite';
+      headline = 'Incorrect';
       headlineClass = 'wrong';
     }
 
@@ -204,7 +224,7 @@
       const correct = EEG.BANDS[currentBand].label;
       const guess   = EEG.BANDS[selectedBand].label;
       detailHTML += `<p class="feedback-detail">
-        You selected <strong>${guess}</strong>, but this was a <strong>${correct}</strong> signal.<br>
+        You selected <strong>${guess}</strong> — this was a <strong>${correct}</strong> signal.<br>
         ${BAND_DESCRIPTIONS[currentBand]}
       </p>`;
     } else {
@@ -217,7 +237,7 @@
     if (!eventCorrect) {
       if (currentEvent === 'none') {
         detailHTML += `<p class="feedback-detail">
-          There was <strong>no special event</strong> in this clip — you selected "${EEG.EVENTS[selectedEvent].label}".
+          There was <strong>no special event</strong> in this clip. You selected "${EEG.EVENTS[selectedEvent].label}".
           Review the guide to learn what each event looks like.
         </p>`;
       } else {
@@ -225,54 +245,45 @@
         const missed = selectedEvent === 'none';
         detailHTML += `<p class="feedback-detail">
           ${missed
-            ? `You said "None", but this clip contained a <strong style="color:var(--yellow)">${evInfo.title}</strong>.`
-            : `You selected "${EEG.EVENTS[selectedEvent].label}", but the event was a <strong style="color:var(--yellow)">${evInfo.title}</strong>.`
+            ? `You selected "None," but this clip contained a <strong style="color:var(--yellow)">${evInfo.title}</strong>.`
+            : `You selected "${EEG.EVENTS[selectedEvent].label}," but the event was a <strong style="color:var(--yellow)">${evInfo.title}</strong>.`
           }
         </p>`;
         detailHTML += buildEventGuideHTML(currentEvent, evInfo);
       }
-    } else {
-      if (currentEvent !== 'none') {
-        detailHTML += `<p class="feedback-detail" style="color:var(--green)">
-          ✓ You correctly identified the <strong>${EEG.EVENTS[currentEvent].label}</strong> event.
-        </p>`;
-      }
+    } else if (currentEvent !== 'none') {
+      detailHTML += `<p class="feedback-detail" style="color:var(--green)">
+        Correct — you identified the <strong>${EEG.EVENTS[currentEvent].label}</strong> event.
+      </p>`;
     }
 
-    // Points
     if (pointsEarned > 0) {
       detailHTML += `<p class="feedback-points">+${pointsEarned} points</p>`;
     }
 
-    // Next button
     const isLast = round >= TOTAL_ROUNDS;
-    detailHTML += `<button class="btn-next" id="next-btn">${isLast ? 'See Results' : 'Next Round →'}</button>`;
+    detailHTML += `<button class="btn-next" id="next-btn">${isLast ? 'See Results' : 'Next Round'}</button>`;
 
     feedbackPanel.innerHTML = `
       <div class="feedback-header">
-        <span class="feedback-icon">${icon}</span>
         <span class="feedback-headline ${headlineClass}">${headline}</span>
       </div>
       ${detailHTML}
     `;
     feedbackPanel.classList.remove('hidden');
 
-    // render example canvas inside feedback if present
+    // Render inline example canvas if present
     const exCanvas = feedbackPanel.querySelector('.event-example-canvas');
     if (exCanvas) {
-      exCanvas.width  = exCanvas.offsetWidth || 600;
-      exCanvas.height = exCanvas.offsetHeight || 130;
+      exCanvas.width  = exCanvas.offsetWidth || 700;
+      exCanvas.height = exCanvas.offsetHeight || 150;
       const sig = EEG.generateGuideSignal(currentEvent);
       EEG.renderToCanvas(exCanvas, sig, { lineColor: '#e3b341' });
     }
 
-    // next button handler
     document.getElementById('next-btn').addEventListener('click', () => {
-      if (round >= TOTAL_ROUNDS) {
-        endGame();
-      } else {
-        startRound();
-      }
+      if (round >= TOTAL_ROUNDS) endGame();
+      else startRound();
     });
   }
 
@@ -280,7 +291,7 @@
     return `
       <div class="event-guide-block">
         <h3>What does ${evInfo.title} look like?</h3>
-        <canvas class="event-example-canvas" style="height:130px"></canvas>
+        <canvas class="event-example-canvas" style="height:150px"></canvas>
         <p>${evInfo.eeg}</p>
         <ul>
           ${evInfo.features.map(f => `<li>${f}</li>`).join('')}
@@ -294,11 +305,11 @@
     state = 'GAME_OVER';
     gameScreen.classList.add('hidden');
 
-    const maxScore = TOTAL_ROUNDS * 25; // 10 band + 15 event
+    const maxScore = TOTAL_ROUNDS * 25;
     const pct = Math.round((score / maxScore) * 100);
     let grade = 'Keep Practicing';
-    if (pct >= 90) grade = 'EEG Expert!';
-    else if (pct >= 70) grade = 'Great Work!';
+    if (pct >= 90)      grade = 'EEG Expert';
+    else if (pct >= 70) grade = 'Great Work';
     else if (pct >= 50) grade = 'Good Effort';
 
     document.getElementById('final-score').textContent = score;
@@ -307,7 +318,6 @@
     gameOverScreen.classList.remove('hidden');
   }
 
-  // ── Init ───────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
     if (state === 'PLAYING' || state === 'FEEDBACK') renderCurrentSignal();
   });
