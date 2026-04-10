@@ -454,6 +454,264 @@ const EEG = (() => {
     ctx.fillText('Time (s)', W - 2, axisY + 7);
   }
 
+  /**
+   * Animate a signal on a canvas in real time, sweeping left-to-right like a
+   * bedside EEG monitor (Natus / Nihon-Kohden sweep mode).
+   *
+   * The signal loops continuously at real-time speed (SAMPLE_RATE samples/sec).
+   * A dark "erase head" bar sweeps just ahead of the writing pen so the current
+   * position is always obvious. Old data is retained behind the pen.
+   *
+   * @param {HTMLCanvasElement} canvas
+   * @param {Float32Array} signal
+   * @param {object} opts   Same keys as renderToCanvas, plus { loop }
+   * @returns {{ stop: function, freeze: function }}
+   *   stop()   — cancel the animation loop entirely
+   *   freeze() — pause (cancel rAF but keep last frame)
+   */
+  function startAnimation(canvas, signal, opts = {}) {
+    const {
+      lineColor    = '#00ff88',
+      bgColor      = '#0d1117',
+      lineWidth    = 1.5,
+      gridColor    = '#1a2535',
+      axisColor    = '#3a4a5a',
+      labelColor   = '#7d8590',
+      showTimeAxis = true,
+      duration     = DURATION,
+      loop         = true,
+    } = opts;
+
+    let rafId      = null;
+    let prevTs     = null;
+    // currentSample is a float so sub-sample advancement accumulates correctly
+    let currentSample = 0;
+    let stopped    = false;
+
+    const ctx = canvas.getContext('2d');
+    const N   = signal.length;
+
+    // Pre-compute amplitude scale once (98th-percentile of abs values)
+    const absCopy = Float32Array.from(signal).map(Math.abs);
+    absCopy.sort();
+    const scale = absCopy[Math.floor(absCopy.length * 0.98)] || 1;
+
+    // ── Helper: draw the static background (grid + axes) ─────────────────
+    function drawBackground(W, H, plotH, midY, pxPerSec) {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, W, H);
+
+      // Horizontal grid (4 rows)
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth   = 0.8;
+      for (let r = 1; r < 4; r++) {
+        const y = (plotH / 4) * r;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+
+      // Vertical second-markers
+      for (let s = 0; s <= duration; s++) {
+        const x = Math.round(s * pxPerSec);
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth   = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, plotH);
+        ctx.stroke();
+      }
+
+      // Half-second dashed lines
+      ctx.setLineDash([3, 4]);
+      ctx.lineWidth = 0.5;
+      for (let s = 0; s < duration; s++) {
+        const x = Math.round((s + 0.5) * pxPerSec);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, plotH);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // Baseline
+      ctx.strokeStyle = axisColor;
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, midY);
+      ctx.lineTo(W, midY);
+      ctx.stroke();
+    }
+
+    // ── Helper: draw time axis labels ─────────────────────────────────────
+    function drawTimeAxis(W, H, plotH, pxPerSec) {
+      if (!showTimeAxis) return;
+      const axisY = plotH;
+
+      ctx.strokeStyle = axisColor;
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, axisY);
+      ctx.lineTo(W, axisY);
+      ctx.stroke();
+
+      ctx.fillStyle    = labelColor;
+      ctx.font         = '10px "Segoe UI", system-ui, sans-serif';
+      ctx.textBaseline = 'top';
+
+      for (let s = 0; s <= duration; s++) {
+        const x = Math.round(s * pxPerSec);
+        ctx.strokeStyle = axisColor;
+        ctx.lineWidth   = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, axisY);
+        ctx.lineTo(x, axisY + 5);
+        ctx.stroke();
+
+        if (s > 0 && s < duration) {
+          ctx.textAlign = 'center';
+          ctx.fillText(`${s}s`, x, axisY + 7);
+        }
+      }
+      ctx.textAlign = 'right';
+      ctx.fillText('Time (s)', W - 2, axisY + 7);
+    }
+
+    // ── Main frame function ───────────────────────────────────────────────
+    function frame(ts) {
+      if (stopped) return;
+
+      // Compute how many samples to advance this frame
+      const dt = prevTs === null ? 0 : (ts - prevTs) / 1000; // seconds
+      prevTs = ts;
+
+      // Advance by real-time sample count
+      currentSample += dt * SAMPLE_RATE;
+
+      if (loop) {
+        currentSample = currentSample % N;
+      } else {
+        currentSample = Math.min(currentSample, N - 1);
+      }
+
+      const W          = canvas.width;
+      const H          = canvas.height;
+      const AXIS_H     = showTimeAxis ? 28 : 0;
+      const plotH      = H - AXIS_H;
+      const midY       = plotH / 2;
+      const margin     = 14;
+      const plotRange  = plotH / 2 - margin;
+      const pxPerSec   = W / duration;
+      const sampPerPx  = N / W;
+
+      // Pixel position of the writing pen
+      const penPx = Math.floor(currentSample / sampPerPx);
+
+      // ── Erase head: clear the strip just ahead of the pen ───────────────
+      // Width of the erase bar (in px) — gives the "blank future" look
+      const ERASE_W = Math.max(8, Math.floor(W * 0.018));
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(penPx, 0, ERASE_W + 1, plotH);
+
+      // Redraw grid only inside the erased strip (cheap, avoids full redraw)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(penPx, 0, ERASE_W + 1, plotH);
+      ctx.clip();
+
+      // Horizontal grid in erased strip
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth   = 0.8;
+      for (let r = 1; r < 4; r++) {
+        const y = (plotH / 4) * r;
+        ctx.beginPath();
+        ctx.moveTo(penPx, y);
+        ctx.lineTo(penPx + ERASE_W + 1, y);
+        ctx.stroke();
+      }
+      // Vertical second lines in erased strip
+      for (let s = 0; s <= duration; s++) {
+        const x = Math.round(s * pxPerSec);
+        if (x >= penPx && x <= penPx + ERASE_W + 1) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, plotH);
+          ctx.stroke();
+        }
+      }
+      // Baseline in erased strip
+      ctx.strokeStyle = axisColor;
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(penPx, midY);
+      ctx.lineTo(penPx + ERASE_W + 1, midY);
+      ctx.stroke();
+      ctx.restore();
+
+      // ── On loop wrap: clear and redraw full background ───────────────────
+      // When penPx is very small (just wrapped), repaint the whole background
+      // so the right side shows blank (no stale waveform from last loop)
+      if (penPx < ERASE_W + 2) {
+        drawBackground(W, H, plotH, midY, pxPerSec);
+        drawTimeAxis(W, H, plotH, pxPerSec);
+      }
+
+      // ── Draw new samples from (penPx - advance) to penPx ────────────────
+      // We draw a small segment each frame — just what's new
+      // Calculate how many px advanced this frame
+      const pxAdvance = Math.max(1, Math.ceil(dt * pxPerSec) + 1);
+      const drawFrom  = Math.max(0, penPx - pxAdvance);
+
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth   = lineWidth;
+      ctx.lineJoin    = 'round';
+      ctx.beginPath();
+
+      for (let px = drawFrom; px <= penPx; px++) {
+        const idx = Math.floor(px * sampPerPx);
+        if (idx >= N) break;
+        const val = Math.max(-1, Math.min(1, signal[idx] / scale));
+        const y   = midY - val * plotRange;
+        if (px === drawFrom) ctx.moveTo(px, y);
+        else                 ctx.lineTo(px, y);
+      }
+      ctx.stroke();
+
+      // ── Redraw time axis (always on top) ─────────────────────────────────
+      drawTimeAxis(W, H, plotH, pxPerSec);
+
+      rafId = requestAnimationFrame(frame);
+    }
+
+    // First frame: draw full background, then start loop
+    function init() {
+      const W      = canvas.width;
+      const H      = canvas.height;
+      const AXIS_H = showTimeAxis ? 28 : 0;
+      const plotH  = H - AXIS_H;
+      const midY   = plotH / 2;
+      const pxPerSec = W / duration;
+      drawBackground(W, H, plotH, midY, pxPerSec);
+      drawTimeAxis(W, H, plotH, pxPerSec);
+      rafId = requestAnimationFrame(frame);
+    }
+
+    init();
+
+    return {
+      stop() {
+        stopped = true;
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      },
+      freeze() {
+        // Pause animation but leave frame visible
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        stopped = true;
+      },
+    };
+  }
+
   // ── Pick a random round ──────────────────────────────────────────────────
 
   function pickRound(eventChance = 0.7) {
@@ -475,6 +733,7 @@ const EEG = (() => {
     SAMPLE_RATE,
     DURATION,
     generateSignal,
+    startAnimation,
     generateGuideSignal,
     renderToCanvas,
     pickRound,

@@ -106,6 +106,7 @@
   let currentEvent = null;
   let selectedBand  = null;
   let selectedEvent = null;
+  let activeAnim   = null; // current animation handle { stop, freeze }
 
   // ── DOM refs ───────────────────────────────────────────────────────────
   const canvas         = document.getElementById('eeg-canvas');
@@ -124,12 +125,18 @@
     canvas.height = canvas.offsetHeight;
   }
 
-  function renderCurrentSignal() {
+  function startCurrentAnimation() {
+    // Stop any existing animation first
+    if (activeAnim) { activeAnim.stop(); activeAnim = null; }
     resizeCanvas();
     if (!currentBand) return;
     const difficulty = Math.min(0.9, (round - 1) / TOTAL_ROUNDS);
     const signal = EEG.generateSignal(currentBand, currentEvent, difficulty);
-    EEG.renderToCanvas(canvas, signal);
+    activeAnim = EEG.startAnimation(canvas, signal);
+  }
+
+  function stopAnimation() {
+    if (activeAnim) { activeAnim.freeze(); activeAnim = null; }
   }
 
   function startRound() {
@@ -151,7 +158,7 @@
     feedbackPanel.innerHTML = '';
 
     roundEl.textContent = `${round} / ${TOTAL_ROUNDS}`;
-    renderCurrentSignal();
+    startCurrentAnimation();
   }
 
   function checkSubmitReady() {
@@ -182,6 +189,7 @@
     if (state !== 'PLAYING') return;
     state = 'FEEDBACK';
     submitBtn.disabled = true;
+    stopAnimation(); // freeze the waveform on submit
     showFeedback();
   });
 
@@ -319,7 +327,7 @@
   }
 
   window.addEventListener('resize', () => {
-    if (state === 'PLAYING' || state === 'FEEDBACK') renderCurrentSignal();
+    if (state === 'PLAYING') startCurrentAnimation();
   });
 
   startRound();
